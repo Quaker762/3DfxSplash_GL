@@ -34,6 +34,7 @@ static Texture shadow_texture;
 
 GLsizei logo_index_count;
 GLsizei shield_cyan_index_count;
+GLsizei shield_white_index_count;
 
 #include "splashdat.cpp"
 
@@ -45,6 +46,7 @@ void setup_geometry()
 {
     std::vector<int> logo_indices;
     std::vector<int> shield_cyan_indices;
+    std::vector<int> shield_white_indices;
 
     // Let's set up the 3Dfx logo first
     glGenVertexArrays(1, &logo_vao);
@@ -103,8 +105,35 @@ void setup_geometry()
         shield_cyan_indices.push_back(f.v[2]);
     }
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, shield_cyan_indices.size() * sizeof(int), &shield_cyan_indices[0], GL_STATIC_DRAW);
-
     shield_cyan_index_count = shield_cyan_indices.size();
+
+    // Finally set up the white and yellow shield
+    glGenVertexArrays(1, &shield_white_vao);
+    glGenBuffers(1, &shield_white_vbo);
+    glGenBuffers(1, &shield_white_ibo);
+    glBindVertexArray(shield_white_vao);
+    glBindBuffer(GL_ARRAY_BUFFER, shield_white_vbo);
+
+    glEnableVertexAttribArray(VERTEX_ATTRIB);
+    glEnableVertexAttribArray(NORMAL_ATTRIB);
+    glEnableVertexAttribArray(ST_ATTRIB);
+
+    glVertexAttribPointer(VERTEX_ATTRIB, 3, GL_FLOAT, GL_FALSE, sizeof(Vert), reinterpret_cast<void*>(offsetof(Vert, Vert::x)));
+    glVertexAttribPointer(NORMAL_ATTRIB, 3, GL_FLOAT, GL_FALSE, sizeof(Vert), reinterpret_cast<void*>(offsetof(Vert, Vert::nx)));
+    glVertexAttribPointer(NORMAL_ATTRIB, 2, GL_FLOAT, GL_FALSE, sizeof(Vert), reinterpret_cast<void*>(offsetof(Vert, Vert::s)));
+
+    glBufferData(GL_ARRAY_BUFFER, num_verts[SHIELD_INDEX_WHITE] * sizeof(Vert), reinterpret_cast<void*>(vert[SHIELD_INDEX_WHITE]), GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, shield_white_ibo);
+    for(int i = 0 ; i < num_faces[SHIELD_INDEX_WHITE]; i++)
+    {
+        Face f = face[SHIELD_INDEX_WHITE][i];
+        shield_white_indices.push_back(f.v[0]);
+        shield_white_indices.push_back(f.v[1]);
+        shield_white_indices.push_back(f.v[2]);
+    }
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, shield_white_indices.size() * sizeof(int), &shield_white_indices[0], GL_STATIC_DRAW);
+    shield_white_index_count = shield_white_indices.size();
 }
 
 void create_textures()
@@ -173,6 +202,7 @@ int main(int argc, char** argv)
     SDL_Event event;
     CShader text_shader("shaders/3dfx_text");
     CShader shield_cyan_shader("shaders/shield_cyan");
+    CShader shield_white_shader("shaders/shield_white");
 
     // Let's set up the projection matrix
     projection = glm::perspective(glm::radians(30.0f), 4.0f / 3.0f, 0.01f, 100000.0f);
@@ -204,6 +234,17 @@ int main(int argc, char** argv)
         glBindVertexArray(shield_cyan_vao);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, shield_cyan_ibo);
         glDrawElements(GL_TRIANGLES, shield_cyan_index_count, GL_UNSIGNED_INT, reinterpret_cast<void*>(0));
+
+        // Draw the white part of the shield
+        model = mat[frame][SHIELD_INDEX_WHITE];
+        shield_white_shader.bind();
+        mvp = projection * view * model;
+        shield_white_shader.set_uniform<const glm::mat4&>("mat_mvp", mvp);
+        //glBindTexture(GL_TEXTURE_2D, logo_3d_texture.tex);
+        glBindVertexArray(shield_white_vao);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, shield_white_ibo);
+        glDrawElements(GL_TRIANGLES, shield_white_index_count, GL_UNSIGNED_INT, reinterpret_cast<void*>(0));
+
 
         // Get the transformation matrix for the text part of the logo and then draw it
         model = mat[frame][LOGO_INDEX];
