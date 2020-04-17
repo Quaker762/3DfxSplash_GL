@@ -32,10 +32,10 @@ static Texture logo_3d_texture;
 static Texture specular_texture;
 static Texture shadow_texture;
 
-#include "splashdat.cpp"
+GLsizei logo_index_count;
+GLsizei shield_cyan_index_count;
 
-std::vector<int> logo_indices;
-std::vector<int> shield_cyan_indices;
+#include "splashdat.cpp"
 
 glm::mat4 projection;
 glm::mat4 view;
@@ -43,6 +43,9 @@ glm::mat4 model;
 
 void setup_geometry()
 {
+    std::vector<int> logo_indices;
+    std::vector<int> shield_cyan_indices;
+
     // Let's set up the 3Dfx logo first
     glGenVertexArrays(1, &logo_vao);
     glGenBuffers(1, &logo_vbo);
@@ -68,6 +71,7 @@ void setup_geometry()
         logo_indices.push_back(f.v[1]);
         logo_indices.push_back(f.v[2]);
     }
+    logo_index_count = logo_indices.size();
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, logo_indices.size() * sizeof(int), &logo_indices[0], GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -100,6 +104,7 @@ void setup_geometry()
     }
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, shield_cyan_indices.size() * sizeof(int), &shield_cyan_indices[0], GL_STATIC_DRAW);
 
+    shield_cyan_index_count = shield_cyan_indices.size();
 }
 
 void create_textures()
@@ -155,7 +160,7 @@ int main(int argc, char** argv)
     glewInit();
 
     // Do OpenGL setup
-    glDepthFunc(GL_ALWAYS);
+    //glDepthFunc(GL_ALWAYS);
 
     // Set up 3Dfx geometry
     setup_geometry();
@@ -198,7 +203,7 @@ int main(int argc, char** argv)
         //glBindTexture(GL_TEXTURE_2D, logo_3d_texture.tex);
         glBindVertexArray(shield_cyan_vao);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, shield_cyan_ibo);
-        glDrawElements(GL_TRIANGLES, shield_cyan_indices.size(), GL_UNSIGNED_INT, reinterpret_cast<void*>(0));
+        glDrawElements(GL_TRIANGLES, shield_cyan_index_count, GL_UNSIGNED_INT, reinterpret_cast<void*>(0));
 
         // Get the transformation matrix for the text part of the logo and then draw it
         model = mat[frame][LOGO_INDEX];
@@ -208,7 +213,8 @@ int main(int argc, char** argv)
         //glBindTexture(GL_TEXTURE_2D, logo_3d_texture.tex);
         glBindVertexArray(logo_vao);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, logo_ibo);
-        glDrawElements(GL_TRIANGLES, logo_indices.size(), GL_UNSIGNED_INT, reinterpret_cast<void*>(0));
+        glDrawElements(GL_TRIANGLES, logo_index_count, GL_UNSIGNED_INT, reinterpret_cast<void*>(0));
+
 
         if(frame > total_num_frames)
         {
