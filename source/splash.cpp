@@ -15,6 +15,7 @@
 #define VERTEX_ATTRIB 0
 #define NORMAL_ATTRIB 1
 #define ST_ATTRIB 2
+#define COLOR_ATTRIB 3
 
 #define SHIELD_INDEX_WHITE 0
 #define LOGO_INDEX 1
@@ -24,7 +25,7 @@
 static constexpr GLsizei scr_width = 640;
 static constexpr GLsizei scr_height = 480;
 
-static GLuint logo_vao, logo_vbo, logo_ibo;
+static GLuint logo_vao, logo_vbo, logo_color_buffer, logo_ibo;
 static GLuint shield_cyan_vao, shield_cyan_vbo, shield_cyan_ibo;
 static GLuint shield_white_vao, shield_white_vbo,shield_white_ibo;
 
@@ -43,42 +44,77 @@ glm::mat4 view;
 glm::mat4 model;
 glm::mat4 mvp;
 
+std::vector<glm::vec3> materials;
+
+void setup_materials()
+{
+    glm::vec3 color;
+
+    // PANTONE 320 C for 3D
+    color = {0.0f, 0.6117647, 0.650980};
+    materials.push_back(color);
+
+    // Black for fx
+    color = {0.0f, 0.0f, 0.0f};
+    materials.push_back(color);
+
+    // Cyan
+    color = {0.03921568627f, 0.2941176471f, 0.4705882353f};
+    materials.push_back(color);
+
+    // White
+    color = {1.0f, 1.0f, 1.0f};
+    materials.push_back(color);
+}
+
 void setup_geometry()
 {
     std::vector<int> logo_indices;
     std::vector<int> shield_cyan_indices;
     std::vector<int> shield_white_indices;
 
+    std::vector<glm::vec3> colors;
+
     // Let's set up the 3Dfx logo first
     glGenVertexArrays(1, &logo_vao);
     glGenBuffers(1, &logo_vbo);
+    glGenBuffers(1, &logo_color_buffer);
     glGenBuffers(1, &logo_ibo);
     glBindVertexArray(logo_vao);
     glBindBuffer(GL_ARRAY_BUFFER, logo_vbo);
 
+    glBufferData(GL_ARRAY_BUFFER, num_verts[LOGO_INDEX] * sizeof(Vert), reinterpret_cast<void*>(vert[LOGO_INDEX]), GL_STATIC_DRAW);
     glEnableVertexAttribArray(VERTEX_ATTRIB);
     glEnableVertexAttribArray(NORMAL_ATTRIB);
     glEnableVertexAttribArray(ST_ATTRIB);
-
     glVertexAttribPointer(VERTEX_ATTRIB, 3, GL_FLOAT, GL_FALSE, sizeof(Vert), reinterpret_cast<void*>(offsetof(Vert, Vert::x)));
     glVertexAttribPointer(NORMAL_ATTRIB, 3, GL_FLOAT, GL_FALSE, sizeof(Vert), reinterpret_cast<void*>(offsetof(Vert, Vert::nx)));
-    glVertexAttribPointer(NORMAL_ATTRIB, 2, GL_FLOAT, GL_FALSE, sizeof(Vert), reinterpret_cast<void*>(offsetof(Vert, Vert::s)));
+    glVertexAttribPointer(ST_ATTRIB, 2, GL_FLOAT, GL_FALSE, sizeof(Vert), reinterpret_cast<void*>(offsetof(Vert, Vert::s)));
 
-    glBufferData(GL_ARRAY_BUFFER, num_verts[LOGO_INDEX] * sizeof(Vert), reinterpret_cast<void*>(vert[LOGO_INDEX]), GL_STATIC_DRAW);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, logo_ibo);
+    colors.resize(num_verts[LOGO_INDEX]);
     for(int i = 0 ; i < num_faces[LOGO_INDEX]; i++)
     {
         Face f = face[LOGO_INDEX][i];
         logo_indices.push_back(f.v[0]);
         logo_indices.push_back(f.v[1]);
         logo_indices.push_back(f.v[2]);
+
+        colors[f.v[0]] = materials[f.mat_index];
+        colors[f.v[1]] = materials[f.mat_index];
+        colors[f.v[2]] = materials[f.mat_index];
     }
+    glBindBuffer(GL_ARRAY_BUFFER, logo_color_buffer);
+    glBufferData(GL_ARRAY_BUFFER, colors.size() * sizeof(glm::vec3), &colors[0], GL_STATIC_DRAW);
+    glVertexAttribPointer(COLOR_ATTRIB, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), reinterpret_cast<void*>(0));
+    glEnableVertexAttribArray(COLOR_ATTRIB);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, logo_ibo);
     logo_index_count = logo_indices.size();
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, logo_indices.size() * sizeof(int), &logo_indices[0], GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
+    colors.clear();
 
     // Now we'll set up the cyan shield
     glGenVertexArrays(1, &shield_cyan_vao);
@@ -190,12 +226,19 @@ int main(int argc, char** argv)
     glewInit();
 
     // Do OpenGL setup
+
+    // Enable Depth Testing
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_ALWAYS); // Always pass the Depth Test to prevent Z-fighting of the shields
+
+    // Enable backface culling
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
 
     // Set up 3Dfx geometry
-    setup_geometry();
+    setup_materials();
     create_textures();
+    setup_geometry();
 
     download_texture(logo_3d_texture);
 
@@ -226,6 +269,9 @@ int main(int argc, char** argv)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
+        // Make sure we don't have Z-Fighting on the shield
+        glDepthFunc(GL_ALWAYS);
+
         // Draw the cyan part of the shield
         model = mat[frame][SHIELD_INDEX_CYAN];
         shield_cyan_shader.bind();
@@ -246,6 +292,9 @@ int main(int argc, char** argv)
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, shield_white_ibo);
         glDrawElements(GL_TRIANGLES, shield_white_index_count, GL_UNSIGNED_INT, reinterpret_cast<void*>(0));
 
+        // Make sure we don't draw the "fx" or the "3D" when one is behind the other
+        if(frame > 20)
+            glDepthFunc(GL_LEQUAL);
 
         // Get the transformation matrix for the text part of the logo and then draw it
         model = mat[frame][LOGO_INDEX];
@@ -266,6 +315,6 @@ int main(int argc, char** argv)
 
         frame++;
         SDL_GL_SwapWindow(hwnd);
-        SDL_Delay(40);
+        SDL_Delay(30);
     }
 }
