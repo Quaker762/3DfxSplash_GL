@@ -41,6 +41,7 @@ GLsizei shield_white_index_count;
 glm::mat4 projection;
 glm::mat4 view;
 glm::mat4 model;
+glm::mat4 mvp;
 
 void setup_geometry()
 {
@@ -189,7 +190,8 @@ int main(int argc, char** argv)
     glewInit();
 
     // Do OpenGL setup
-    //glDepthFunc(GL_ALWAYS);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_ALWAYS); // Always pass the Depth Test to prevent Z-fighting of the shields
 
     // Set up 3Dfx geometry
     setup_geometry();
@@ -213,7 +215,6 @@ int main(int argc, char** argv)
     );
 
     view = glm::scale(view, glm::vec3(-1, 1, 1));
-    glm::mat4 mvp;
     while(running)
     {
         while(SDL_PollEvent(&event))
