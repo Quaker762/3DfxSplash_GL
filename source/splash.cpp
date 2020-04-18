@@ -44,7 +44,10 @@ glm::mat4 view;
 glm::mat4 model;
 glm::mat4 mvp;
 
+// Lighting
 std::vector<glm::vec3> materials;
+glm::vec3 light = {-0.57735f, -0.57735f, -0.57735f};
+glm::vec3 light_color = {1.0f, 1.0f, 1.0f};
 
 void setup_materials()
 {
@@ -326,18 +329,21 @@ int main(int argc, char** argv)
         glDepthFunc(GL_ALWAYS);
         shader.bind();
 
+        // Matrix setup for shader
+        shader.set_uniform<const glm::mat4&>("mat_projection", projection);
+        shader.set_uniform<const glm::mat4&>("mat_view", view);
+
+
         // Draw the cyan part of the shield
         model = mat[frame][SHIELD_INDEX_CYAN];
-        mvp = projection * view * model;
-        shader.set_uniform<const glm::mat4&>("mat_mvp", mvp);
+        shader.set_uniform<const glm::mat4&>("mat_model", model);
         glBindVertexArray(shield_cyan_vao);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, shield_cyan_ibo);
         glDrawElements(GL_TRIANGLES, shield_cyan_index_count, GL_UNSIGNED_INT, reinterpret_cast<void*>(0));
 
         // Draw the white part of the shield
         model = mat[frame][SHIELD_INDEX_WHITE];
-        mvp = projection * view * model;
-        shader.set_uniform<const glm::mat4&>("mat_mvp", mvp);
+        shader.set_uniform<const glm::mat4&>("mat_model", model);
         glBindVertexArray(shield_white_vao);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, shield_white_ibo);
         glDrawElements(GL_TRIANGLES, shield_white_index_count, GL_UNSIGNED_INT, reinterpret_cast<void*>(0));
@@ -348,9 +354,7 @@ int main(int argc, char** argv)
 
         // Get the transformation matrix for the text part of the logo and then draw it
         model = mat[frame][LOGO_INDEX];
-        mvp = projection * view * model;
-        shader.set_uniform<const glm::mat4&>("mat_mvp", mvp);
-        //glBindTexture(GL_TEXTURE_2D, logo_3d_texture.tex);
+        shader.set_uniform<const glm::mat4&>("mat_model", model);
         glBindVertexArray(logo_vao);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, logo_ibo);
         glDrawElements(GL_TRIANGLES, logo_index_count, GL_UNSIGNED_INT, reinterpret_cast<void*>(0));
@@ -365,6 +369,5 @@ int main(int argc, char** argv)
 
         SDL_GL_SwapWindow(hwnd);
         SDL_Delay(30);
-        //SDL_Delay(200);
     }
 }
