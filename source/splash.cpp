@@ -26,8 +26,8 @@ static constexpr GLsizei scr_width = 640;
 static constexpr GLsizei scr_height = 480;
 
 static GLuint logo_vao, logo_vbo, logo_color_buffer, logo_ibo;
-static GLuint shield_cyan_vao, shield_cyan_vbo, shield_cyan_ibo;
-static GLuint shield_white_vao, shield_white_vbo,shield_white_ibo;
+static GLuint shield_cyan_vao, shield_cyan_vbo, shield_cyan_color_buffer, shield_cyan_ibo;
+static GLuint shield_white_vao, shield_white_vbo, shield_white_color_buffer, shield_white_ibo;
 
 static Texture logo_3d_texture;
 static Texture specular_texture;
@@ -64,6 +64,10 @@ void setup_materials()
 
     // White
     color = {1.0f, 1.0f, 1.0f};
+    materials.push_back(color);
+
+    // White
+    color = {0.9725490196f, 0.8f, 0.0f};
     materials.push_back(color);
 }
 
@@ -119,6 +123,7 @@ void setup_geometry()
     // Now we'll set up the cyan shield
     glGenVertexArrays(1, &shield_cyan_vao);
     glGenBuffers(1, &shield_cyan_vbo);
+    glGenBuffers(1, &shield_cyan_color_buffer);
     glGenBuffers(1, &shield_cyan_ibo);
     glBindVertexArray(shield_cyan_vao);
     glBindBuffer(GL_ARRAY_BUFFER, shield_cyan_vbo);
@@ -129,24 +134,36 @@ void setup_geometry()
 
     glVertexAttribPointer(VERTEX_ATTRIB, 3, GL_FLOAT, GL_FALSE, sizeof(Vert), reinterpret_cast<void*>(offsetof(Vert, Vert::x)));
     glVertexAttribPointer(NORMAL_ATTRIB, 3, GL_FLOAT, GL_FALSE, sizeof(Vert), reinterpret_cast<void*>(offsetof(Vert, Vert::nx)));
-    glVertexAttribPointer(NORMAL_ATTRIB, 2, GL_FLOAT, GL_FALSE, sizeof(Vert), reinterpret_cast<void*>(offsetof(Vert, Vert::s)));
+    glVertexAttribPointer(ST_ATTRIB, 2, GL_FLOAT, GL_FALSE, sizeof(Vert), reinterpret_cast<void*>(offsetof(Vert, Vert::s)));
 
     glBufferData(GL_ARRAY_BUFFER, num_verts[SHIELD_INDEX_CYAN] * sizeof(Vert), reinterpret_cast<void*>(vert[SHIELD_INDEX_CYAN]), GL_STATIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, shield_cyan_ibo);
+    colors.resize(num_verts[SHIELD_INDEX_CYAN]);
     for(int i = 0 ; i < num_faces[SHIELD_INDEX_CYAN]; i++)
     {
         Face f = face[SHIELD_INDEX_CYAN][i];
         shield_cyan_indices.push_back(f.v[0]);
         shield_cyan_indices.push_back(f.v[1]);
         shield_cyan_indices.push_back(f.v[2]);
+
+        colors[f.v[0]] = materials[f.mat_index];
+        colors[f.v[1]] = materials[f.mat_index];
+        colors[f.v[2]] = materials[f.mat_index];
     }
+    glBindBuffer(GL_ARRAY_BUFFER, shield_cyan_color_buffer);
+    glBufferData(GL_ARRAY_BUFFER, colors.size() * sizeof(glm::vec3), &colors[0], GL_STATIC_DRAW);
+    glVertexAttribPointer(COLOR_ATTRIB, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), reinterpret_cast<void*>(0));
+    glEnableVertexAttribArray(COLOR_ATTRIB);
+
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, shield_cyan_indices.size() * sizeof(int), &shield_cyan_indices[0], GL_STATIC_DRAW);
     shield_cyan_index_count = shield_cyan_indices.size();
+    colors.clear();
 
     // Finally set up the white and yellow shield
     glGenVertexArrays(1, &shield_white_vao);
     glGenBuffers(1, &shield_white_vbo);
+    glGenBuffers(1, &shield_white_color_buffer);
     glGenBuffers(1, &shield_white_ibo);
     glBindVertexArray(shield_white_vao);
     glBindBuffer(GL_ARRAY_BUFFER, shield_white_vbo);
@@ -157,18 +174,32 @@ void setup_geometry()
 
     glVertexAttribPointer(VERTEX_ATTRIB, 3, GL_FLOAT, GL_FALSE, sizeof(Vert), reinterpret_cast<void*>(offsetof(Vert, Vert::x)));
     glVertexAttribPointer(NORMAL_ATTRIB, 3, GL_FLOAT, GL_FALSE, sizeof(Vert), reinterpret_cast<void*>(offsetof(Vert, Vert::nx)));
-    glVertexAttribPointer(NORMAL_ATTRIB, 2, GL_FLOAT, GL_FALSE, sizeof(Vert), reinterpret_cast<void*>(offsetof(Vert, Vert::s)));
+    glVertexAttribPointer(ST_ATTRIB, 2, GL_FLOAT, GL_FALSE, sizeof(Vert), reinterpret_cast<void*>(offsetof(Vert, Vert::s)));
 
     glBufferData(GL_ARRAY_BUFFER, num_verts[SHIELD_INDEX_WHITE] * sizeof(Vert), reinterpret_cast<void*>(vert[SHIELD_INDEX_WHITE]), GL_STATIC_DRAW);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, shield_white_ibo);
+    colors.resize(num_verts[SHIELD_INDEX_WHITE]);
     for(int i = 0 ; i < num_faces[SHIELD_INDEX_WHITE]; i++)
     {
         Face f = face[SHIELD_INDEX_WHITE][i];
         shield_white_indices.push_back(f.v[0]);
         shield_white_indices.push_back(f.v[1]);
         shield_white_indices.push_back(f.v[2]);
+
+        // This is a very dirty hack
+        if(colors[f.v[0]].r == 0)
+            colors[f.v[0]] = materials[f.mat_index];
+        if(colors[f.v[1]].r == 0)
+            colors[f.v[1]] = materials[f.mat_index];
+        if(colors[f.v[2]].r == 0)
+            colors[f.v[2]] = materials[f.mat_index];
     }
+    glBindBuffer(GL_ARRAY_BUFFER, shield_white_color_buffer);
+    glBufferData(GL_ARRAY_BUFFER, colors.size() * sizeof(glm::vec3), &colors[0], GL_STATIC_DRAW);
+    glVertexAttribPointer(COLOR_ATTRIB, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), reinterpret_cast<void*>(0));
+    glEnableVertexAttribArray(COLOR_ATTRIB);
+
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, shield_white_indices.size() * sizeof(int), &shield_white_indices[0], GL_STATIC_DRAW);
     shield_white_index_count = shield_white_indices.size();
 }
@@ -245,9 +276,7 @@ int main(int argc, char** argv)
     bool running = true;
     int frame = 1;
     SDL_Event event;
-    CShader text_shader("shaders/3dfx_text");
-    CShader shield_cyan_shader("shaders/shield_cyan");
-    CShader shield_white_shader("shaders/shield_white");
+    CShader shader("shaders/3dfx_text");
 
     // Let's set up the projection matrix
     projection = glm::perspective(glm::radians(30.0f), 4.0f / 3.0f, 0.01f, 100000.0f);
@@ -271,12 +300,13 @@ int main(int argc, char** argv)
 
         // Make sure we don't have Z-Fighting on the shield
         glDepthFunc(GL_ALWAYS);
+        shader.bind();
 
         // Draw the cyan part of the shield
         model = mat[frame][SHIELD_INDEX_CYAN];
-        shield_cyan_shader.bind();
+        //shield_cyan_shader.bind();
         mvp = projection * view * model;
-        shield_cyan_shader.set_uniform<const glm::mat4&>("mat_mvp", mvp);
+        shader.set_uniform<const glm::mat4&>("mat_mvp", mvp);
         //glBindTexture(GL_TEXTURE_2D, logo_3d_texture.tex);
         glBindVertexArray(shield_cyan_vao);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, shield_cyan_ibo);
@@ -284,9 +314,9 @@ int main(int argc, char** argv)
 
         // Draw the white part of the shield
         model = mat[frame][SHIELD_INDEX_WHITE];
-        shield_white_shader.bind();
+        //shield_white_shader.bind();
         mvp = projection * view * model;
-        shield_white_shader.set_uniform<const glm::mat4&>("mat_mvp", mvp);
+        shader.set_uniform<const glm::mat4&>("mat_mvp", mvp);
         //glBindTexture(GL_TEXTURE_2D, logo_3d_texture.tex);
         glBindVertexArray(shield_white_vao);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, shield_white_ibo);
@@ -298,9 +328,8 @@ int main(int argc, char** argv)
 
         // Get the transformation matrix for the text part of the logo and then draw it
         model = mat[frame][LOGO_INDEX];
-        text_shader.bind();
         mvp = projection * view * model;
-        text_shader.set_uniform<const glm::mat4&>("mat_mvp", mvp);
+        shader.set_uniform<const glm::mat4&>("mat_mvp", mvp);
         //glBindTexture(GL_TEXTURE_2D, logo_3d_texture.tex);
         glBindVertexArray(logo_vao);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, logo_ibo);
