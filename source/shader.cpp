@@ -333,6 +333,24 @@ GLint CShader::set_uniform(const std::string& name, GLuint i1, GLuint i2, GLuint
 }
 
 template<>
+GLint CShader::set_uniform(const std::string& name, const glm::vec2& vec) const
+{
+    GLint loc = get_uniform_loc(name);
+
+    glUniformMatrix2fv(loc, 1, GL_FALSE, &vec[0]);
+    return loc;
+}
+
+template<>
+GLint CShader::set_uniform(const std::string& name, const glm::vec3& vec) const
+{
+    GLint loc = get_uniform_loc(name);
+
+    glUniformMatrix3fv(loc, 1, GL_FALSE, &vec[0]);
+    return loc;
+}
+
+template<>
 GLint CShader::set_uniform(const std::string& name, const glm::mat2& mat) const
 {
     GLint loc = get_uniform_loc(name);
