@@ -241,12 +241,12 @@ int main(int argc, char** argv)
 
     // OpenGL setup
     SDL_Init(SDL_INIT_VIDEO);
-    SDL_GL_SetAttribute( SDL_GL_DOUBLEBUFFER, 1 );
-    SDL_GL_SetAttribute( SDL_GL_ACCELERATED_VISUAL, 1 );
-    SDL_GL_SetAttribute( SDL_GL_RED_SIZE, 8 );
-    SDL_GL_SetAttribute( SDL_GL_GREEN_SIZE, 8 );
-    SDL_GL_SetAttribute( SDL_GL_BLUE_SIZE, 8 );
-    SDL_GL_SetAttribute( SDL_GL_ALPHA_SIZE, 8 );
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
+    SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
+    SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
 
     SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, 3 );
     SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 3 );
@@ -274,6 +274,7 @@ int main(int argc, char** argv)
     download_texture(logo_3d_texture);
 
     bool running = true;
+    bool wireframe = false;
     int frame = 1;
     SDL_Event event;
     CShader shader("shaders/3dfx_text");
@@ -286,6 +287,8 @@ int main(int argc, char** argv)
     glm::vec3(0,1,0)  // Head is up (set to 0,-1,0 to look upside-down)
     );
 
+    // This makes everything draw correctly for some reason?
+    // If this is removed, everything stops working?
     view = glm::scale(view, glm::vec3(-1, 1, 1));
     while(running)
     {
@@ -293,6 +296,27 @@ int main(int argc, char** argv)
         {
             if(event.type == SDL_QUIT)
                 running = false;
+
+            if(event.type == SDL_KEYDOWN)
+            {
+                if(event.key.keysym.sym == SDLK_w)
+                {
+                    if(!wireframe)
+                        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+                    else
+                        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+                    wireframe = !wireframe;
+                }
+
+                if(event.key.keysym.sym == SDLK_SPACE)
+                {
+                    if(frame > total_num_frames)
+                        frame = 0;
+                    else
+                        frame++;
+                }
+            }
         }
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -304,20 +328,16 @@ int main(int argc, char** argv)
 
         // Draw the cyan part of the shield
         model = mat[frame][SHIELD_INDEX_CYAN];
-        //shield_cyan_shader.bind();
         mvp = projection * view * model;
         shader.set_uniform<const glm::mat4&>("mat_mvp", mvp);
-        //glBindTexture(GL_TEXTURE_2D, logo_3d_texture.tex);
         glBindVertexArray(shield_cyan_vao);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, shield_cyan_ibo);
         glDrawElements(GL_TRIANGLES, shield_cyan_index_count, GL_UNSIGNED_INT, reinterpret_cast<void*>(0));
 
         // Draw the white part of the shield
         model = mat[frame][SHIELD_INDEX_WHITE];
-        //shield_white_shader.bind();
         mvp = projection * view * model;
         shader.set_uniform<const glm::mat4&>("mat_mvp", mvp);
-        //glBindTexture(GL_TEXTURE_2D, logo_3d_texture.tex);
         glBindVertexArray(shield_white_vao);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, shield_white_ibo);
         glDrawElements(GL_TRIANGLES, shield_white_index_count, GL_UNSIGNED_INT, reinterpret_cast<void*>(0));
@@ -335,7 +355,6 @@ int main(int argc, char** argv)
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, logo_ibo);
         glDrawElements(GL_TRIANGLES, logo_index_count, GL_UNSIGNED_INT, reinterpret_cast<void*>(0));
 
-
         if(frame > total_num_frames)
         {
             frame = 0;
@@ -343,7 +362,9 @@ int main(int argc, char** argv)
         }
 
         frame++;
+
         SDL_GL_SwapWindow(hwnd);
         SDL_Delay(30);
+        //SDL_Delay(200);
     }
 }
