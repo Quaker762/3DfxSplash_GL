@@ -9,8 +9,13 @@ flat in int frag_material;
 // Out variables
 out vec4 frag_color;                // The output color of this fragment
 
-vec3 light0_position = vec3(50.0f, 500.0f, -1700.0f);
-vec3 light1_position = vec3(100.0f, -300.0f, -1000.0f);
+// Uniform variables
+uniform vec3 light0_position;
+uniform vec3 light1_position;
+uniform vec3 light0_color;
+uniform vec3 light1_color;
+
+// Locals
 vec3 light = vec3(-0.57735f, -0.57735f, -0.57735f);
 vec3 cam_position = vec3(-10, 0, -450);
 vec3 light_color = vec3(1.0, 1.0, 1.0);
@@ -36,7 +41,7 @@ void main()
     vec3 ambient = ambient_strength * light_color;
     vec3 diffuse = vec3(0, 0, 0);
 
-    diffuse += calculate_diffuse(frag_normal, light0_position, vec3(1.0, 1.0, 1.0));
+    diffuse += calculate_diffuse(frag_normal, light0_position, light0_color);
 
     float factor = ((light.x * frag_normal.x + light.y * frag_normal.y + light.z * frag_normal.z) + 0.4);
 
@@ -53,7 +58,7 @@ void main()
         float spec = pow(max(dot(view_direction, reflect_direction), 0.5), 32);
         vec3 specular = specularStrength * spec * vec3(1.0, 0.0, 0.0);
         **/
-        diffuse += calculate_diffuse(frag_normal, light1_position, vec3(1.0, 1.0, 1.0)) * 0.5;
+        diffuse += calculate_diffuse(frag_normal, light1_position, light1_color) * 0.5;
         frag_color = vec4((ambient + diffuse) * 0.8 * frag_vertex_color, 1.0);
     }
     else

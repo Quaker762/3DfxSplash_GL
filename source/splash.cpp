@@ -22,6 +22,8 @@
 #define LOGO_INDEX 1
 #define SHIELD_INDEX_CYAN 2
 
+#define NUM_LIGHTS 2
+
 
 static constexpr GLsizei scr_width = 640;
 static constexpr GLsizei scr_height = 480;
@@ -29,6 +31,8 @@ static constexpr GLsizei scr_height = 480;
 static GLuint logo_vao, logo_vbo, logo_color_buffer, logo_material_buffer, logo_ibo;
 static GLuint shield_cyan_vao, shield_cyan_vbo, shield_cyan_color_buffer, shield_cyan_material_buffer, shield_cyan_ibo;
 static GLuint shield_white_vao, shield_white_vbo, shield_white_color_buffer, shield_white_material_buffer, shield_white_ibo;
+
+static GLuint light_vao, light_vbo;
 
 static Texture logo_3d_texture;
 static Texture specular_texture;
@@ -47,8 +51,24 @@ glm::mat4 mvp;
 
 // Lighting
 std::vector<glm::vec3> materials;
-glm::vec3 light = {5.0f, 300.0f, -1500.0f};
-glm::vec3 light_color = {1.0f, 1.0f, 1.0f};
+glm::vec3 light_positions[NUM_LIGHTS] = 
+{
+    {50.0f, 500.0f, -500.0f},
+    {100.0f, -300.0f, -300.0f}
+};
+
+glm::vec3 light_colors[NUM_LIGHTS] = 
+{
+    {1.0f, 1.0f, 1.0f},
+    {1.0f, 1.0f, 1.0f}
+};
+
+// Shadowing stuff
+static constexpr unsigned int SHADOW_WIDTH = 1024;
+static constexpr unsigned int SHADOW_HEIGHT = 1024;
+unsigned int depth_map_fbo;
+unsigned int depth_map;
+
 
 void setup_materials()
 {
@@ -71,8 +91,13 @@ void setup_materials()
     materials.push_back(color);
 
     // White
-    color = {248.0f / 255.0f, 204.0f / 255.0f, 0.0f};
+    color = {248.0f / 255.0f, 185.0f / 255.0f, 0.0f};
     materials.push_back(color);
+}
+
+void setup_shadowing()
+{
+    glGenTextures(1, &depth_map);
 }
 
 void setup_geometry()
@@ -243,6 +268,15 @@ void setup_geometry()
 
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, shield_white_indices.size() * sizeof(int), &shield_white_indices[0], GL_STATIC_DRAW);
     shield_white_index_count = shield_white_indices.size();
+
+    // Now let's set up the geometry for the lights (so we can draw them)
+    glDepthFunc(GL_LEQUAL);
+    glGenVertexArrays(1, &light_vao);
+    glGenBuffers(1, &light_vbo);
+    glBindVertexArray(light_vao);
+    glBindBuffer(GL_ARRAY_BUFFER, light_vbo);
+    glVertexAttribPointer(VERTEX_ATTRIB, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), reinterpret_cast<void*>(0));
+    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * NUM_LIGHTS, &light_positions[0], GL_STATIC_DRAW);
 }
 
 void create_textures()
@@ -297,6 +331,8 @@ int main(int argc, char** argv)
     glewInit();
 
     // Do OpenGL setup
+    glShadeModel(GL_FLAT);
+    glPointSize(5.0f);
 
     // Enable Depth Testing
     glEnable(GL_DEPTH_TEST);
@@ -319,6 +355,7 @@ int main(int argc, char** argv)
     SDL_Event event;
     CShader pass1("shaders/logo_pass1");
     CShader pass2("shaders/logo_pass2");
+    CShader light_shader("shaders/lights");
 
     // Let's set up the projection matrix
     projection = glm::perspective(glm::radians(30.0f), 4.0f / 3.0f, 0.01f, 100000.0f);
@@ -380,7 +417,10 @@ int main(int argc, char** argv)
                 pass1.set_uniform<const glm::mat4&>("mat_view", view);
 
                 // Lighting setup
-                //shader.set_uniform<const glm::vec3&>("light_position", light);
+                pass1.set_uniform<const glm::vec3&>("light0_position", light_positions[0]);
+                pass1.set_uniform<const glm::vec3&>("light1_position", light_positions[1]);
+                pass1.set_uniform<const glm::vec3&>("light0_color", light_colors[0]);
+                pass1.set_uniform<const glm::vec3&>("light1_color", light_colors[1]);
 
                 // Draw the cyan part of the shield
                 model = mat[frame][SHIELD_INDEX_CYAN];
@@ -402,6 +442,16 @@ int main(int argc, char** argv)
                 glBindVertexArray(logo_vao);
                 glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, logo_ibo);
                 glDrawElements(GL_TRIANGLES, logo_index_count, GL_UNSIGNED_INT, reinterpret_cast<void*>(0));
+
+                // Now let's draw the lights
+                light_shader.bind();
+                light_shader.set_uniform<const glm::mat4&>("mat_projection", projection);
+                light_shader.set_uniform<const glm::mat4&>("mat_view", view);
+
+                glBindVertexArray(light_vao);
+                glBindBuffer(GL_ARRAY_BUFFER, light_vbo);
+                glDrawArrays(GL_POINTS, 0, NUM_LIGHTS);
+
             }
             else if(pass == 2) // Shadow mapping
             {
