@@ -338,7 +338,7 @@ GLint CShader::set_uniform(const std::string& name, const glm::vec2& vec) const
 {
     GLint loc = get_uniform_loc(name);
 
-    glUniformMatrix2fv(loc, 1, GL_FALSE, &vec[0]);
+    glUniform2fv(loc, 1, &vec[0]);
     return loc;
 }
 
@@ -347,7 +347,7 @@ GLint CShader::set_uniform(const std::string& name, const glm::vec3& vec) const
 {
     GLint loc = get_uniform_loc(name);
 
-    glUniformMatrix3fv(loc, 1, GL_FALSE, &vec[0]);
+    glUniform3fv(loc, 1, &vec[0]);
     return loc;
 }
 
