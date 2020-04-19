@@ -8,4 +8,4 @@ ever.
 
 This is a fun work in progress. Here's a screenshot of what I have so far!
 
-![3Dfx!](https://media.discordapp.net/attachments/460407170861629441/700735040660963418/unknown.png)
+![3Dfx!](https://imgur.com/IxVd5Bf.png)
