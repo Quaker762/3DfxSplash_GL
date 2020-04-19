@@ -175,9 +175,10 @@ void CShader::load()
         glGetProgramiv(programID, GL_INFO_LOG_LENGTH, &logSize);
         compile_log.resize(logSize);
         compile_log.reserve(logSize);
+        glGetProgramInfoLog(programID, logSize, &logSize, reinterpret_cast<GLchar*>(const_cast<char*>(compile_log.data())));
 
         glDeleteProgram(programID);
-        log(LogLevel::ERROR, "glLinkProgram(): Failed to link shader! Reason: %s", compile_log.c_str());
+        log(LogLevel::ERROR, "glLinkProgram(): Failed to link shader! Reason: %s\n", compile_log.c_str());
 
         status = CShader::LoadStatus::OPENGL_ERROR;
         return;
