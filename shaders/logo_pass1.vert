@@ -20,10 +20,9 @@ void main()
 {
     mat4 mat_mvp = mat_projection * mat_view * mat_model;
 
-    frag_vertex = vertex_data;
+    frag_vertex = vec3(mat_model * vec4(vertex_data, 1.0)); // Transformed vertex position
     frag_vertex_color = color_data;
-    frag_normal = mat3(mat_model) * vec3(normal_data);
+    frag_normal = mat3(transpose(mat_model)) * normal_data;
     frag_material = material_index;
-
     gl_Position = mat_mvp * vec4(vertex_data, 1.0);
 }

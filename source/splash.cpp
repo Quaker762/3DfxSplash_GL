@@ -71,7 +71,7 @@ void setup_materials()
     materials.push_back(color);
 
     // White
-    color = {0.9725490196f, 0.8f, 0.0f};
+    color = {248.0f / 255.0f, 204.0f / 255.0f, 0.0f};
     materials.push_back(color);
 }
 
@@ -318,7 +318,7 @@ int main(int argc, char** argv)
     int frame = 1;
     SDL_Event event;
     CShader pass1("shaders/logo_pass1");
-    //CShader pass1("shaders/logo_pass2");
+    CShader pass2("shaders/logo_pass2");
 
     // Let's set up the projection matrix
     projection = glm::perspective(glm::radians(30.0f), 4.0f / 3.0f, 0.01f, 100000.0f);
@@ -369,10 +369,10 @@ int main(int argc, char** argv)
                 glDepthFunc(GL_LEQUAL);
 
         // Draw the shields with color values multiplied by normals
-        //for(int pass = 0; pass < 3; pass++)
-        //{
-            //if(pass >= 0)
-            //{
+        for(int pass = 1; pass < 3; pass++)
+        {
+            if(pass == 1)
+            {
                 pass1.bind();
 
                 // Matrix setup for shader
@@ -402,19 +402,18 @@ int main(int argc, char** argv)
                 glBindVertexArray(logo_vao);
                 glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, logo_ibo);
                 glDrawElements(GL_TRIANGLES, logo_index_count, GL_UNSIGNED_INT, reinterpret_cast<void*>(0));
-            //}
-            //else if(pass == 1)
-            //{
-
-            //}
-        //}
+            }
+            else if(pass == 2) // Shadow mapping
+            {
+            }
+        }
         if(frame > total_num_frames)
         {
             frame = 0;
             continue;
         }
 
-        frame++;
+        //frame++;
 
         SDL_GL_SwapWindow(hwnd);
         SDL_Delay(30);
