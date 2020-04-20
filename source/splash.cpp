@@ -22,7 +22,7 @@
 #define LOGO_INDEX 1
 #define SHIELD_INDEX_CYAN 2
 
-#define NUM_LIGHTS 2
+#define NUM_LIGHTS 3
 
 
 static constexpr GLsizei scr_width = 640;
@@ -54,11 +54,13 @@ std::vector<glm::vec3> materials;
 glm::vec3 light_positions[NUM_LIGHTS] = 
 {
     {50.0f, 500.0f, -500.0f},
-    {100.0f, -300.0f, -300.0f}
+    {-5.0f, 300.0f, -1500.0f },
+    {0.0f, 0.0f, -350}
 };
 
 glm::vec3 light_colors[NUM_LIGHTS] = 
 {
+    {1.0f, 1.0f, 1.0f},
     {1.0f, 1.0f, 1.0f},
     {1.0f, 1.0f, 1.0f}
 };
@@ -79,7 +81,7 @@ void setup_materials()
     materials.push_back(color);
 
     // Black for fx
-    color = {0.0f, 0.0f, 0.0f};
+    color = {0.1f, 0.1f, 0.1f};
     materials.push_back(color);
 
     // Cyan
@@ -95,9 +97,27 @@ void setup_materials()
     materials.push_back(color);
 }
 
+// https://learnopengl.com/Advanced-Lighting/Shadows/Shadow-Mapping
 void setup_shadowing()
 {
+    glGenFramebuffers(1, &depth_map_fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, depth_map_fbo);
+
+    // Depth texture. Slower than a depth buffer, but you can sample it later in your shader
     glGenTextures(1, &depth_map);
+    glBindTexture(GL_TEXTURE_2D, depth_map);
+    glTexImage2D(GL_TEXTURE_2D, 0,GL_DEPTH_COMPONENT16, 1024, 1024, 0,GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depth_map, 0);
+
+    glDrawBuffer(GL_NONE);
+
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        log(LogLevel::ERROR, "error with framebuffer!!!\n");
 }
 
 void setup_geometry()
@@ -270,13 +290,13 @@ void setup_geometry()
     shield_white_index_count = shield_white_indices.size();
 
     // Now let's set up the geometry for the lights (so we can draw them)
-    glDepthFunc(GL_LEQUAL);
+    glm::vec3 data = {1.0f, 1.0f, 1.0f};
     glGenVertexArrays(1, &light_vao);
     glGenBuffers(1, &light_vbo);
     glBindVertexArray(light_vao);
     glBindBuffer(GL_ARRAY_BUFFER, light_vbo);
     glVertexAttribPointer(VERTEX_ATTRIB, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), reinterpret_cast<void*>(0));
-    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * NUM_LIGHTS, &light_positions[0], GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3), &data[0], GL_STATIC_DRAW);
 }
 
 void create_textures()
@@ -346,28 +366,43 @@ int main(int argc, char** argv)
     setup_materials();
     create_textures();
     setup_geometry();
+    setup_shadowing();
 
     download_texture(logo_3d_texture);
 
     bool running = true;
     bool wireframe = false;
+    bool play = true;
     int frame = 1;
     SDL_Event event;
-    CShader pass1("shaders/logo_pass1");
-    CShader pass2("shaders/logo_pass2");
-    CShader light_shader("shaders/lights");
+    CShader shadow_pass_shader("shaders/shadow");
+    CShader pass2("shaders/logo");
 
     // Let's set up the projection matrix
     projection = glm::perspective(glm::radians(30.0f), 4.0f / 3.0f, 0.01f, 100000.0f);
-    glm::mat4 view = glm::lookAt(
-    glm::vec3(-10,0,-450), // Camera is at (4,3,3), in World Space
-    glm::vec3(0,0,0), // and looks at the origin
-    glm::vec3(0,1,0)  // Head is up (set to 0,-1,0 to look upside-down)
+    glm::mat4 view = glm::lookAt
+    (
+        glm::vec3(-10, 0, -450), // Camera is at (4,3,3), in World Space
+        glm::vec3(0, 0, 0), // and looks at the origin
+        glm::vec3(0,1,0)  // Head is up (set to 0,-1,0 to look upside-down)
     );
 
     // This makes everything draw correctly for some reason?
     // If this is removed, everything stops working?
     view = glm::scale(view, glm::vec3(-1, 1, 1));
+
+    // Light matrices
+    glm::mat4 light_projection = glm::ortho(-1000.0f, 1000.0f, -1000.0f, 1000.0f, 0.1f, 2700.0f);
+    glm::mat4 light_view = glm::lookAt
+    (
+        light_positions[1],
+        glm::vec3(500.0f, -600.0f, 1271.0f),
+        glm::vec3(0.0f, 1.0f, 0.0f)
+    );
+    light_view = glm::scale(light_view, glm::vec3(-1, 1, 1));
+    glm::mat4 mat_lightspace = light_projection * light_view;
+    glm::mat4 mvp;
+
     while(running)
     {
         while(SDL_PollEvent(&event))
@@ -394,76 +429,115 @@ int main(int argc, char** argv)
                     else
                         frame++;
                 }
+
+                if(event.key.keysym.sym == SDLK_p)
+                {
+                    play = !play;
+                }
             }
         }
 
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-
-        // Make sure we don't have Z-Fighting on the shield
-        glDepthFunc(GL_ALWAYS);
-        if(frame > 20)
-                glDepthFunc(GL_LEQUAL);
 
         // Draw the shields with color values multiplied by normals
         for(int pass = 1; pass < 3; pass++)
         {
+            // First pass is rendering to the shadowmap
             if(pass == 1)
             {
-                pass1.bind();
+                glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
 
-                // Matrix setup for shader
-                pass1.set_uniform<const glm::mat4&>("mat_projection", projection);
-                pass1.set_uniform<const glm::mat4&>("mat_view", view);
+                // Disable writes to the depth buffer because for some reason the shield gets
+                // written to it....
+                glBindFramebuffer(GL_FRAMEBUFFER, depth_map_fbo);
+                glClear(GL_DEPTH_BUFFER_BIT);
+                glDepthMask(false); 
+                shadow_pass_shader.bind();
 
-                // Lighting setup
-                pass1.set_uniform<const glm::vec3&>("light0_position", light_positions[0]);
-                pass1.set_uniform<const glm::vec3&>("light1_position", light_positions[1]);
-                pass1.set_uniform<const glm::vec3&>("light0_color", light_colors[0]);
-                pass1.set_uniform<const glm::vec3&>("light1_color", light_colors[1]);
+                shadow_pass_shader.set_uniform<const glm::mat4&>("mat_projection", light_projection);
+                shadow_pass_shader.set_uniform<const glm::mat4&>("mat_view", light_view);
 
-                // Draw the cyan part of the shield
                 model = mat[frame][SHIELD_INDEX_CYAN];
-                pass1.set_uniform<const glm::mat4&>("mat_model", model);
+                shadow_pass_shader.set_uniform<const glm::mat4&>("mat_model", model);
                 glBindVertexArray(shield_cyan_vao);
                 glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, shield_cyan_ibo);
                 glDrawElements(GL_TRIANGLES, shield_cyan_index_count, GL_UNSIGNED_INT, reinterpret_cast<void*>(0));
 
                 // Draw the white part of the shield
                 model = mat[frame][SHIELD_INDEX_WHITE];
-                pass1.set_uniform<const glm::mat4&>("mat_model", model);
+                shadow_pass_shader.set_uniform<const glm::mat4&>("mat_model", model);
+                glBindVertexArray(shield_white_vao);
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, shield_white_ibo);
+                glDrawElements(GL_TRIANGLES, shield_white_index_count, GL_UNSIGNED_INT, reinterpret_cast<void*>(0));
+
+                glDepthMask(true); 
+                glDepthFunc(GL_ALWAYS);
+                // Get the transformation matrix for the text part of the logo and then draw it
+                model = mat[frame][LOGO_INDEX];
+                shadow_pass_shader.set_uniform<const glm::mat4&>("mat_model", model);
+                glBindVertexArray(logo_vao);
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, logo_ibo);
+                glDrawElements(GL_TRIANGLES, logo_index_count, GL_UNSIGNED_INT, reinterpret_cast<void*>(0));
+
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                shadow_pass_shader.unbind();
+            }
+            else if(pass == 2) // Shadow mapping
+            {
+                glViewport(0, 0, 640, 480);
+                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+                glDepthFunc(GL_ALWAYS);
+
+                if(frame > 20)
+                    glDepthFunc(GL_LEQUAL);
+
+
+                pass2.bind();
+                pass2.set_uniform<const glm::mat4&>("mat_projection", projection);
+                pass2.set_uniform<const glm::mat4&>("mat_view", view);
+                
+
+                // Lighting setup
+                pass2.set_uniform<const glm::vec3&>("light0_position", light_positions[0]);
+                pass2.set_uniform<const glm::vec3&>("light1_position", light_positions[1]);
+                pass2.set_uniform<const glm::mat4&>("mat_lightmatrix", mat_lightspace);
+
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, depth_map);
+
+                // Draw the cyan part of the shield
+                model = mat[frame][SHIELD_INDEX_CYAN];
+                pass2.set_uniform<const glm::mat4&>("mat_model", model);
+                glBindVertexArray(shield_cyan_vao);
+                glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, shield_cyan_ibo);
+                glDrawElements(GL_TRIANGLES, shield_cyan_index_count, GL_UNSIGNED_INT, reinterpret_cast<void*>(0));
+
+                // Draw the white part of the shield
+                model = mat[frame][SHIELD_INDEX_WHITE];
+                pass2.set_uniform<const glm::mat4&>("mat_model", model);
                 glBindVertexArray(shield_white_vao);
                 glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, shield_white_ibo);
                 glDrawElements(GL_TRIANGLES, shield_white_index_count, GL_UNSIGNED_INT, reinterpret_cast<void*>(0));
 
                 // Get the transformation matrix for the text part of the logo and then draw it
                 model = mat[frame][LOGO_INDEX];
-                pass1.set_uniform<const glm::mat4&>("mat_model", model);
+                pass2.set_uniform<const glm::mat4&>("mat_model", model);
                 glBindVertexArray(logo_vao);
                 glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, logo_ibo);
                 glDrawElements(GL_TRIANGLES, logo_index_count, GL_UNSIGNED_INT, reinterpret_cast<void*>(0));
 
-                // Now let's draw the lights
-                light_shader.bind();
-                light_shader.set_uniform<const glm::mat4&>("mat_projection", projection);
-                light_shader.set_uniform<const glm::mat4&>("mat_view", view);
-
-                glBindVertexArray(light_vao);
-                glBindBuffer(GL_ARRAY_BUFFER, light_vbo);
-                glDrawArrays(GL_POINTS, 0, NUM_LIGHTS);
-
-            }
-            else if(pass == 2) // Shadow mapping
-            {
+                pass2.unbind();
             }
         }
+
         if(frame > total_num_frames)
         {
             frame = 0;
             continue;
         }
 
-        //frame++;
+        if(play)
+            frame++;
 
         SDL_GL_SwapWindow(hwnd);
         SDL_Delay(30);
