@@ -65,6 +65,6 @@ void main()
     else
     {    
         float shadow_value = shadow(frag_vertex_lightspace);
-        frag_color = vec4((ambient + (1.0 - shadow_value * 0.45)) * diffuse * 0.7 * frag_vertex_color, 1.0);
+        frag_color = vec4((ambient + (1.0 - shadow_value * 0.25)) * diffuse * 0.7 * frag_vertex_color, 1.0);
     }
 }

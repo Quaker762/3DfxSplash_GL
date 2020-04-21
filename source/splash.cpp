@@ -346,6 +346,10 @@ int main(int argc, char** argv)
     SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 3 );
     SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE );
 
+    // Enable MSAA
+    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 16); // 16x MSAA
+
     SDL_Window* hwnd = SDL_CreateWindow("3Dfx Splash", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, scr_width, scr_height, SDL_WINDOW_OPENGL);
     SDL_GLContext context = SDL_GL_CreateContext(hwnd);
     glewInit();
@@ -361,6 +365,9 @@ int main(int argc, char** argv)
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
+
+    // Enable MSAA
+    glEnable(GL_MULTISAMPLE);
 
     // Set up 3Dfx geometry
     setup_materials();
@@ -379,7 +386,7 @@ int main(int argc, char** argv)
     CShader pass2("shaders/logo");
 
     // Let's set up the projection matrix
-    projection = glm::perspective(glm::radians(30.0f), 4.0f / 3.0f, 0.01f, 100000.0f);
+    projection = glm::perspective(glm::radians(30.0f), 4.0f / 3.0f, 1.0f, 100000.0f);
     glm::mat4 view = glm::lookAt
     (
         glm::vec3(-10, 0, -450), // Camera is at (4,3,3), in World Space
@@ -392,7 +399,7 @@ int main(int argc, char** argv)
     view = glm::scale(view, glm::vec3(-1, 1, 1));
 
     // Light matrices
-    glm::mat4 light_projection = glm::ortho(-1000.0f, 1000.0f, -1000.0f, 1000.0f, 0.1f, 2700.0f);
+    glm::mat4 light_projection = glm::ortho(-850.0f, 850.0f, -850.0f, 850.0f, 1.0f, 2700.0f);
     glm::mat4 light_view = glm::lookAt
     (
         light_positions[1],
